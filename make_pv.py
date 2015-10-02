@@ -34,7 +34,6 @@ def make_paragraph_vector(
         random_learn_flag=0, # 1:ランダムに学習する, 0:与えられた文章から順に学習する
         n_gram_mode = 0, # 0:変換しない 1,2,3-gram
         null_vec_type = 0, # 0:zeros , 1: ones, 2:random
-        corpus_type=0, # 0:20万  1:2万件 , 2:collagree
         skip_concat = 0, # 0:not skip   1:nullをskip
         is_using_label = 0, # 有害無害のラベルを付与するかどうか。
         sentences=None,
