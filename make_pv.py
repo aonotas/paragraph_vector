@@ -3,7 +3,6 @@
 
 import argparse
 import paragraph_vector
-import load_wikipedia_corpus
 import pickle
 from prettyprint import pp, pp_str
 
@@ -35,9 +34,8 @@ def make_paragraph_vector(
         n_gram_mode = 0, # 0:変換しない 1,2,3-gram
         null_vec_type = 0, # 0:zeros , 1: ones, 2:random
         skip_concat = 0, # 0:not skip   1:nullをskip
-        is_using_label = 0, # 有害無害のラベルを付与するかどうか。
         sentences=None,
-        corpus=None
+        input_file=None
     ):
 
     import unicodedata
@@ -59,18 +57,20 @@ def make_paragraph_vector(
 
     import logging
     logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO) 
-    import paragraph_vector
 
- 
-    model = paragraph_vector.ParagraphVector(sentences, size=vec_length, doc_vec_size=doc_vec_length, min_count=min_count, window=window,window_r=window_r, sg=sg, negative=negative, cbow_type=cbow_type,cbow_mean=cbow_mean,average_flag=average_flag,alpha_flag=alpha_flag,is_np_mean_syn1=is_np_mean_syn1,is_using_word2vec=is_using_word2vec,hs=hs,skip_gram_type=skip_gram_type,sample=sample,freeze_learn=freeze_learn,random_learn_flag=random_learn_flag,null_vec_type=null_vec_type,skip_concat=skip_concat,is_using_label=is_using_label)
+    print '...model setting'
+    model = paragraph_vector.ParagraphVector(size=vec_length, doc_vec_size=doc_vec_length, min_count=min_count, window=window,window_r=window_r, sg=sg, negative=negative, cbow_type=cbow_type,cbow_mean=cbow_mean,average_flag=average_flag,alpha_flag=alpha_flag,is_np_mean_syn1=is_np_mean_syn1,is_using_word2vec=is_using_word2vec,hs=hs,skip_gram_type=skip_gram_type,sample=sample,freeze_learn=freeze_learn,random_learn_flag=random_learn_flag,null_vec_type=null_vec_type,skip_concat=skip_concat)
 
-
+    print '..load input file & build vocab'
+    sentences_length = model.build_vocab(sentences=open(input_file))
+    if sentences_length > 0:
+        sentences_length += 1
     alpha_doc_m = alpha_doc
     alpha_m = alpha
     for i in xrange(iteration):
         print "**iteration : %d " % i
         print "alpha %f" % alpha_doc_m
-        model.train(sentences=sentences, alpha=alpha_m, alpha_doc=alpha_doc_m)
+        model.train(input_file=input_file, alpha=alpha_m, alpha_doc=alpha_doc_m,sentences_length=sentences_length)
 
 
         save_filename = "trained_model_{}_iter{}.p".format(uniq_id,str(i))
@@ -115,19 +115,15 @@ if __name__ == '__main__':
     parser.add_argument('--random_learn_flag', type=int, dest='random_learn_flag', required=False, default=0) # 1:ランダムに学習する, 0:与えられた文章から順に学習する
     parser.add_argument('--n_gram_mode', type=int, dest='n_gram_mode', required=False, default=0) # 0:変換しない 1,2,3-gram
     parser.add_argument('--null_vec_type', type=int, dest='null_vec_type', required=False, default=2) # 0:zeros , 1: ones, 2:random
-    parser.add_argument('--corpus', type=str, dest='corpus', required=True) 
-    parser.add_argument('--skip_concat', type=int, dest='skip_concat', required=False, default=0) # 0:not skip   1:nullをskip
-    parser.add_argument('--is_using_label', type=int, dest='is_using_label', required=False, default=0) 
+    parser.add_argument('--skip_concat', type=int, dest='skip_concat', required=False, default=0) # 0:not skip   1:nullをskip 
+    parser.add_argument('--input', type=str, dest='input_file', required=False, default="INPUT.txt") 
+    # 1行1ドキュメントのファイル名
 
 
     args = parser.parse_args()
     args_dict =  vars(args)
     pp(args_dict)
 
-    if args_dict["corpus"] == "wiki":
-        sentences, index2pageid, pageid2title = load_wikipedia_corpus.get_wiki_text() 
-        args_dict["sentences"] = sentences
 
-    
 
     make_paragraph_vector(**args_dict)

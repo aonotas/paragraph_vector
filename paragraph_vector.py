@@ -67,7 +67,7 @@ else:
 
 class ParagraphVector(object):
     """docstring for ParagraphVector"""
-    def __init__(self, sentences=None, size=100, doc_vec_size=None, window=5,window_r=5, min_count=5,sample=0, seed=1, workers=1, min_alpha=0.0001, sg=1, cbow_type = 2, hs=1, negative=0, cbow_mean=0 , skip_id=0,average_flag=0,alpha_flag=0,is_np_mean_syn1=1,is_using_word2vec=0,skip_gram_type=0 ,freeze_learn=1,random_learn_flag=1,null_vec_type=0,skip_concat=0,is_using_label=0):
+    def __init__(self, sentences=None, size=100, doc_vec_size=None, window=5,window_r=5, min_count=5,sample=0, seed=1, workers=1, min_alpha=0.0001, sg=1, cbow_type = 2, hs=1, negative=0, cbow_mean=0 , skip_id=0,average_flag=0,alpha_flag=0,is_np_mean_syn1=1,is_using_word2vec=0,skip_gram_type=0 ,freeze_learn=1,random_learn_flag=1,null_vec_type=0,skip_concat=0):
         """
         Initialize the model from an iterable of `sentences`. Each sentence is a
         list of words (unicode strings) that will be used for training.
@@ -132,7 +132,6 @@ class ParagraphVector(object):
         self.freeze_learn = freeze_learn
         self.null_vec_type = null_vec_type
         self.skip_concat = skip_concat
-        self.is_using_label = is_using_label
         if sentences is not None:
             self.build_vocab(sentences)
             # self.train(sentences)
@@ -282,6 +281,7 @@ class ParagraphVector(object):
         self.precalc_sampling()
         if reset_flag:
             self.reset_weights()
+        return sentence_no
 
     def set_syn0(self, syn0):
         self.syn0 = syn0
@@ -292,7 +292,7 @@ class ParagraphVector(object):
         if hasattr(self,"syn1neg"):
             self.syn1neg[:,:self.syn1_word_size] = syn1[:,:]
 
-    def train(self, sentences, total_words=None, word_count=0, chunksize=100 , alpha=0.025, alpha_doc=0.025):
+    def train(self, input_file=None, total_words=None, word_count=0, chunksize=100 , alpha=0.025, alpha_doc=0.025,sentences_length=None):
         """
         Update the model's neural weights from a sequence of sentences (can be a once-only generator stream).
         Each sentence must be a list of utf8 strings.
@@ -430,28 +430,24 @@ class ParagraphVector(object):
             thread.start()
 
         def prepare_sentences():
-
             '''
                 ここでsentencesのindexをradom.shuffleしランダムに学習していく
             '''
-
-            indexes_sentence_ids = numpy.array(range(len(sentences)))
-
             if self.random_learn_flag:
+                # ランダムに入力データをシャッフルして学習する
+                indexes_sentence_ids = numpy.array(range(sentences_length))
                 random.shuffle(indexes_sentence_ids, lambda: random_seed)
-                #numpy.random.shuffle(indexes_sentence_ids)
+                sentences = [(indexes_sentence_ids[index],sentence) for index,sentence in enumerate(open(input_file))]
 
-            for index in xrange(len(sentences)):
-                # avoid calling random_sample() where prob >= 1, to speed things up a little:
-                sentence_id = indexes_sentence_ids[index]
-                sentence    = sentences[sentence_id]
+            else:
+                sentences = enumerate(open(input_file))
+
+            for sentence_id, sentence in sentences:
                 sentence = sentence.split(u" ")
-
                 # 途中まで学習している場合はスキップする（学習済モデルから追加で学習する場合）
                 if sentence_id < self.skip_id:
                     print "skip! :"+str(sentence_id) +" "+str(self.skip_id)
                     continue
-
                 sampled = [self.vocab[word] for word in sentence
                     if word in self.vocab and (self.vocab[word].sample_probability >= 1.0 or self.vocab[word].sample_probability >= numpy.random.random_sample())]
                 yield (sentence_id,sampled)
@@ -492,8 +488,6 @@ class ParagraphVector(object):
 
         # syn1_size = self.layer1_size
         label_size = 0
-        if self.is_using_label:
-            label_size = 10
 
         if self.cbow_type == 0:
             syn1_size = self.layer1_size+label_size
